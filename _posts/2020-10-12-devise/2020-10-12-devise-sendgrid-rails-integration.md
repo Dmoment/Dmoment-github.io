@@ -83,20 +83,21 @@ After issuing this command you can store your Sendgrid credentials in this file
    {% endhighlight %}
 Under config/environment/production.rb file add in the following code 
 {% highlight ruby %}
-config.action_mailer.smtp_settings = {
-    :user_name => ENV['SENDGRID_USERNAME'],
-    :password => ENV['SENDGRID_PASSWORD'],
-    :domain => 'heroku.com',
-    :address => 'smtp.sendgrid.net',
-    :port => 587,
-    :authentication => :plain,
-    :enable_starttls_auto => true
-   }
-  config.action_mailer.delivery_method = :smtp
+ ActionMailer::Base.smtp_settings = {
+      :address => 'smtp.sendgrid.net',
+      :port => '587',
+      :authentication => :plain,
+      :user_name => Rails.application.credentials.dig(:user_name),
+      :password => Rails.application.credentials.dig(:password),
+      :domain => 'heroku.com',
+      :enable_starttls_auto => true
+    }
+
+    config.action_mailer.delivery_method = :smtp
   config.action_mailer.default_url_options ={:host => 'yourherokuapp.herokuapp.com', :protocol => 'https'}
 {% endhighlight %}
 
-Now update the development.rb file under config/environments folder and add the following  lines:
+Now update the development.rb file under config/environments folder and add the following  lines
 {% highlight ruby %}
  ActionMailer::Base.smtp_settings = {
       :address => 'smtp.sendgrid.net',
@@ -111,6 +112,25 @@ Now update the development.rb file under config/environments folder and add the 
     config.action_mailer.delivery_method = :smtp
     config.action_mailer.default_url_options ={:host => 'http://localhost:3000'}
     {% endhighlight %}
-Now it is all set up. When you sign up now sendgrid will send a verification link to the registered email of the user
+This setup configuration is both for production and development environment.    
+Now it is all set up. When you sign up now sendgrid will send a verification link to the registered email of the user. The confirmation link will look something like this.
 
 ![Sendgrid verification link](/2020/10/12/email_confirmation.png)
+
+If you want to redirect the user to a specific url after they clicked the link in the confirmation email, override the after_confirmation_path_for in your confirmations_controller:
+
+Create a new confirmations_controller.rb in app/controllers directory:
+{% highlight ruby %}
+class ConfirmationsController < Devise::ConfirmationsController
+  private
+  def after_confirmation_path_for(resource_name, resource)
+    sign_in(resource) # In case you want to sign in the user
+    your_new_after_confirmation_path
+  end
+end
+ {% endhighlight %}
+In config/routes.rb, add this line so that Devise will use your custom ConfirmationsController. This assumes Devise operates on users table (you may edit to match yours).
+{% highlight ruby %}
+devise_for :users, controllers: { confirmations: 'confirmations' }
+ {% endhighlight %}
+ Restart the web server, and you should have it.
